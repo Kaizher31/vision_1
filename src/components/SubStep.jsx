@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Button from './Button';
 import styles from './SubStep.module.css';
+import html2canvas from "html2canvas";
 
 const SubStep = () => {
   const { id, subId } = useParams();
@@ -9,12 +10,13 @@ const SubStep = () => {
   const canvasRef = useRef(null);
   const ctxRef = useRef(null);
   const [drawing, setDrawing] = useState(false);
+  const [userPath, setUserPath] = useState([]);
+  const [message, setMessage] = useState("🎨 그림을 그려보세요!");
 
-  // Step별 도안 이미지 설정
   const getStepImage = () => {
     const stepImages = {
       "1-1": "/images/line.png",
-      "1-2": "/images/diagonal.png",
+      "1-2": "/images/monariza.png",
       "1-3": "/images/cross.png",
       "1-4": "/images/semi-circle.png",
       "1-5": "/images/circle.png",
@@ -29,83 +31,138 @@ const SubStep = () => {
   };
 
   useEffect(() => {
+    drawTemplate();
+  }, [id, subId]);
+
+  const drawTemplate = () => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     ctxRef.current = ctx;
-
-    // 캔버스 초기화
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 도안 이미지 적용
     const imgSrc = getStepImage();
     if (imgSrc) {
       const img = new Image();
       img.src = imgSrc;
       img.onload = () => {
-        ctx.globalAlpha = 0.3; // 반투명 설정
+        ctx.globalAlpha = 0.3;
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        ctx.globalAlpha = 1.0; // 이후 그림은 원래대로
+        ctx.globalAlpha = 1.0;
       };
     }
-  }, [id, subId]);
+  };
 
-  // 그림 그리기 기능 추가 (캔버스에서 선이 나오도록)
+  const clearCanvas = () => {
+    drawTemplate();
+    setUserPath([]);
+    setMessage("🎨 그림을 그려보세요!");
+  };
+
+  const getMousePos = (e) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+  };
+
   const startDrawing = (e) => {
     setDrawing(true);
-    const canvas = canvasRef.current;
+    setUserPath([]);
+    setMessage("🖌️ 그리는 중...");
     const ctx = ctxRef.current;
-    const rect = canvas.getBoundingClientRect(); // 🔥 캔버스의 정확한 위치 정보 가져오기
-  
-    const x = e.clientX - rect.left; // 🔥 정확한 X 좌표 계산
-    const y = e.clientY - rect.top;  // 🔥 정확한 Y 좌표 계산
-  
+    const { x, y } = getMousePos(e);
     ctx.beginPath();
     ctx.moveTo(x, y);
   };
-  
+
   const draw = (e) => {
     if (!drawing) return;
-    const canvas = canvasRef.current;
     const ctx = ctxRef.current;
-    const rect = canvas.getBoundingClientRect(); // 🔥 캔버스 위치 정보 가져오기
-  
-    const x = e.clientX - rect.left; // 🔥 X 좌표 보정
-    const y = e.clientY - rect.top;  // 🔥 Y 좌표 보정
-  
+    const { x, y } = getMousePos(e);
+    setUserPath((prevPath) => [...prevPath, { x, y }]);
     ctx.lineTo(x, y);
     ctx.stroke();
   };
-  
+
   const stopDrawing = () => {
     setDrawing(false);
     ctxRef.current.closePath();
+    checkCompletion();
+  };
+
+  const checkCompletion = () => {
+    let matchCount = 0;
+    const tolerance = 15;
+    const templatePath = generateTemplatePath();
+
+    userPath.forEach(({ x: ux, y: uy }) => {
+      templatePath.forEach(({ x: tx, y: ty }) => {
+        if (Math.abs(ux - tx) <= tolerance && Math.abs(uy - ty) <= tolerance) {
+          matchCount++;
+        }
+      });
+    });
+
+    const matchPercentage = (matchCount / templatePath.length) * 100;
+    setMessage(matchPercentage > 80 ? "🎉 성공적으로 그렸습니다!" : "❌ 다시 시도하세요!");
+  };
+
+  const generateTemplatePath = () => {
+    let path = [];
+    for (let angle = Math.PI; angle <= 2 * Math.PI; angle += 0.05) {
+      let x = 300 + 150 * Math.cos(angle);
+      let y = 200 + 150 * Math.sin(angle);
+      path.push({ x, y });
+    }
+    return path;
+  };
+
+  // ✅ 이전 단계 이동 (1-1 이하로 내려가지 않도록 제한)
+  const handlePrevStep = () => {
+    const newSubId = Math.max(1, parseInt(subId) - 1);
+    navigate(`/step/${id}/${newSubId}`);
+  };
+
+  // ✅ 다음 단계 이동 (1-12 이상으로 넘어가지 않도록 제한)
+  const handleNextStep = () => {
+    const newSubId = Math.min(12, parseInt(subId) + 1);
+    navigate(`/step/${id}/${newSubId}`);
   };
 
   return (
     <div className={styles.subStepContainer}>
       <h2 className={styles.subStepTitle}>Step {id} - {subId}</h2>
-      
-      <canvas
-        ref={canvasRef}
-        className={styles.drawingCanvas}
-        width={600}
-        height={400}
-        onMouseDown={startDrawing}
-        onMouseMove={draw}
-        onMouseUp={stopDrawing}
-        onMouseLeave={stopDrawing}
-      ></canvas>
+
+      <div id="captureArea" className={styles.canvasWrapper}>
+        {/* ✅ 초기화 버튼 추가 (캔버스 오른쪽 위 배치) */}
+        <button className={styles.clearButton} onClick={clearCanvas}>🗑 초기화</button>
+        
+        <canvas
+          ref={canvasRef}
+          className={styles.drawingCanvas}
+          width={2000}
+          height={1600}
+          onMouseDown={startDrawing}
+          onMouseMove={draw}
+          onMouseUp={stopDrawing}
+          onMouseLeave={stopDrawing}
+        ></canvas>
+      </div>
+
+      {/* ✅ 실시간 메시지 표시 */}
+      <div className={styles.resultMessage}>{message}</div>
 
       <div className={styles.subStepControls}>
         <Button 
           text="이전으로" 
-          onClick={() => navigate(`/step/${id}/${parseInt(subId) - 1}`)} 
+          onClick={handlePrevStep} 
           color="pink" 
         />
-        <Button text="저장하기" onClick={() => alert('그림 저장하기!')} color="pink" />
+        <Button text="저장하기" onClick={() => alert("저장 기능!")} color="pink" />
         <Button 
           text="다음으로" 
-          onClick={() => navigate(`/step/${id}/${parseInt(subId) + 1}`)} 
+          onClick={handleNextStep} 
           color="pink" 
         />
       </div>

@@ -55,3 +55,28 @@
     background-color: #b5ead7; /* 다음으로 버튼 (연한 청록색) */
     color: black;
   }
+
+  .canvasWrapper {
+    position: relative;
+    display: inline-block;
+    border: 3px solid #666; /* 테두리 추가 (선택 사항) */
+    padding: 5px;
+  }
+  
+  .clearButton {
+    position: absolute;
+    top: -40px; /* 🔥 캔버스의 위쪽 바깥으로 이동 */
+    right: 0;
+    background-color: red;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 5px;
+    font-weight: bold;
+  }
+  
+  .clearButton:hover {
+    background-color: darkred;
+  }
