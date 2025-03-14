@@ -1,61 +1,61 @@
 /* src/components/Home.module.css */
-.homeContainer {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    background: repeating-linear-gradient(
-      45deg,
-      #e0f7e0,
-      #e0f7e0 10px,
-      white 10px,
-      white 20px
-    ); /* 체크무늬 배경 */
-    border: 5px solid #32cd32; /* 녹색 테두리 */
-    border-radius: 15px;
-    margin: 20px;
-  }
+
+/* 전체 컨테이너 */
+.container {
+  /* 화면 전체 사용 */
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
   
-  .title {
-    font-size: 36px;
-    font-weight: bold;
-    margin-bottom: 20px;
-  }
+  /* 배경색 (연한 노랑) */
+  background-color: #FFF9D9;
   
-  .titleOrange {
-    color: #ff6347; /* 주황색 */
-  }
-  
-  .titleGreen {
-    color: #32cd32; /* 녹색 */
-  }
-  
-  .circleContainer {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-    position: relative;
-    width: 300px;
-  }
-  
-  .circle {
-    width: 60px;
-    height: 60px;
-    background-color: #ff6347; /* 주황색 원 */
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    font-weight: bold;
-  }
-  
-  /* Play 버튼을 중앙에 위치 */
-  .circleContainer :global(.customButton) {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-  }
+  /* 로고/내용 배치에 필요한 position 설정 */
+  position: relative;
+}
+
+/* 오른쪽 상단 로고 */
+.logo {
+  position: absolute;
+  top: 2rem;    /* 필요에 맞게 조절 */
+  right: 2rem;  /* 필요에 맞게 조절 */
+  width: 80px;  /* 로고 크기 */
+  height: auto; /* 비율 유지 */
+}
+
+/* 왼쪽 텍스트·버튼 묶음 */
+.content {
+  /* 왼쪽에 여백을 두어 배치 */
+  margin-left: 2rem;
+  margin-top: 3rem;
+}
+
+/* 제목 스타일 */
+.title {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+/* 설명 문구 */
+.subtitle {
+  font-size: 1rem;
+  line-height: 1.4;
+  margin-bottom: 2rem;
+}
+
+/* 시작하기 버튼 */
+.startButton {
+  font-size: 1rem;
+  padding: 0.8rem 1.6rem;
+  background-color: #FFB6C1; /* 연한 핑크 */
+  border: none;
+  border-radius: 4px;
+  color: #333;
+  cursor: pointer;
+}
+
+.startButton:hover {
+  background-color: #FF9EAE;
+}
