@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Button from './Button';
 import styles from './SubStep.module.css';
 import html2canvas from "html2canvas";
+import { Icon } from '@iconify/react';
+import arrowLeft from '@iconify-icons/mdi/arrow-left';
 
 const SubStep = () => {
   const { id, subId } = useParams();
@@ -12,6 +14,7 @@ const SubStep = () => {
   const [drawing, setDrawing] = useState(false);
   const [userPath, setUserPath] = useState([]);
   const [message, setMessage] = useState("🎨 그림을 그려보세요!");
+  const [lineWidth, setLineWidth] = useState(5); // 기본 선 굵기 설정
 
   const getStepImage = () => {
     const stepImages = {
@@ -71,16 +74,46 @@ const SubStep = () => {
     setUserPath([]);
     setMessage("🖌️ 그리는 중...");
     const ctx = ctxRef.current;
+    ctx.lineWidth = 10; 
+    ctx.lineCap = "round"; 
+    ctx.lineJoin = "round"; 
+
     const { x, y } = getMousePos(e);
     ctx.beginPath();
     ctx.moveTo(x, y);
+  };
+
+  const computeMatchPercentage = (path) => {
+    let matchCount = 0;
+    const tolerance = 20; // ✅ 거리 오차 범위 조금 넓힘
+    const templatePath = generateTemplatePath();
+  
+    path.forEach(({ x: ux, y: uy }) => {
+      const isMatched = templatePath.some(({ x: tx, y: ty }) => 
+        Math.abs(ux - tx) <= tolerance && Math.abs(uy - ty) <= tolerance
+      );
+      if (isMatched) matchCount++;
+    });
+  
+    // ✅ 전체 그린 부분 중 매칭된 비율 반환
+    return matchCount > 0 ? (matchCount / templatePath.length) * 100 : 0;
   };
 
   const draw = (e) => {
     if (!drawing) return;
     const ctx = ctxRef.current;
     const { x, y } = getMousePos(e);
-    setUserPath((prevPath) => [...prevPath, { x, y }]);
+    
+    setUserPath((prevPath) => {
+      const newPath = [...prevPath, { x, y }];
+      const percentage = computeMatchPercentage(newPath); // ✅ newPath 사용
+  
+      // ✅ 실시간 퍼센트 업데이트
+      setMessage(`✅ ${percentage.toFixed(1)}% 그렸습니다!`);
+  
+      return newPath;
+    });
+  
     ctx.lineTo(x, y);
     ctx.stroke();
   };
@@ -88,86 +121,139 @@ const SubStep = () => {
   const stopDrawing = () => {
     setDrawing(false);
     ctxRef.current.closePath();
-    checkCompletion();
-  };
-
-  const checkCompletion = () => {
-    let matchCount = 0;
-    const tolerance = 15;
-    const templatePath = generateTemplatePath();
-
-    userPath.forEach(({ x: ux, y: uy }) => {
-      templatePath.forEach(({ x: tx, y: ty }) => {
-        if (Math.abs(ux - tx) <= tolerance && Math.abs(uy - ty) <= tolerance) {
-          matchCount++;
-        }
-      });
+  
+    // ✅ userPath가 아니라 최신 newPath로 퍼센트 계산
+    setUserPath((prevPath) => {
+      const percentage = computeMatchPercentage(prevPath);
+  
+      if (percentage >= 70) {
+        setMessage(`🎉 성공적으로 그렸습니다! (${percentage.toFixed(1)}%)`);
+      } else {
+        setMessage("❌ 다시 시도하세요!");
+      }
+  
+      return prevPath;
     });
-
-    const matchPercentage = (matchCount / templatePath.length) * 100;
-    setMessage(matchPercentage > 80 ? "🎉 성공적으로 그렸습니다!" : "❌ 다시 시도하세요!");
   };
 
   const generateTemplatePath = () => {
     let path = [];
-    for (let angle = Math.PI; angle <= 2 * Math.PI; angle += 0.05) {
-      let x = 300 + 150 * Math.cos(angle);
-      let y = 200 + 150 * Math.sin(angle);
-      path.push({ x, y });
+    
+    // Step 별로 템플릿 경로 다르게 설정
+    if (id === "1" && subId === "1") {  
+      // 1-1 단계는 직선
+      for (let x = 500; x <= 1500; x += 10) {
+        path.push({ x, y: 800 }); // 직선이므로 y값은 고정
+      }
+    } else if (id === "1" && subId === "2") {
+      // 1-2 단계는 모나리자 (그림이므로 패턴이 필요)
+      for (let angle = 0; angle <= Math.PI * 2; angle += 0.05) {
+        let x = 1000 + 150 * Math.cos(angle);
+        let y = 800 + 150 * Math.sin(angle);
+        path.push({ x, y });
+      }
+    } else {
+      // 기본 원형 패턴 (기존 코드)
+      for (let angle = Math.PI; angle <= 2 * Math.PI; angle += 0.05) {
+        let x = 1000 + 150 * Math.cos(angle);
+        let y = 800 + 150 * Math.sin(angle);
+        path.push({ x, y });
+      }
     }
+    
     return path;
   };
 
   // ✅ 이전 단계 이동 (1-1 이하로 내려가지 않도록 제한)
   const handlePrevStep = () => {
-    const newSubId = Math.max(1, parseInt(subId) - 1);
-    navigate(`/step/${id}/${newSubId}`);
+    // 현재 subId가 1이면 이전 Step으로 이동
+    if (parseInt(subId) === 1) {
+      const prevStep = Math.max(1, parseInt(id) - 1); // 최소 Step 1까지 유지
+      navigate(`/step/${prevStep}/12`); // 이전 Step의 마지막 단계(12)로 이동
+    } else {
+      navigate(`/step/${id}/${parseInt(subId) - 1}`);
+    }
   };
 
   // ✅ 다음 단계 이동 (1-12 이상으로 넘어가지 않도록 제한)
   const handleNextStep = () => {
-    const newSubId = Math.min(12, parseInt(subId) + 1);
-    navigate(`/step/${id}/${newSubId}`);
+    // 현재 subId가 12이면 다음 Step으로 이동
+    if (parseInt(subId) === 12) {
+      const nextStep = Math.min(3, parseInt(id) + 1); // 최대 Step 3까지 이동 가능
+      navigate(`/step/${nextStep}/1`); // 다음 Step의 첫 번째 단계(1)로 이동
+    } else {
+      navigate(`/step/${id}/${parseInt(subId) + 1}`);
+    }
+  };
+
+  // ✅ 'captureArea' 영역을 캡처하여 PNG로 저장하는 함수
+  const saveCaptureAreaAsImage = () => {
+    const captureElement = document.getElementById("captureArea");  // ✅ 캡처할 영역 설정
+
+    html2canvas(captureElement, { backgroundColor: null }).then((canvas) => {
+      const image = canvas.toDataURL("image/png");  // ✅ PNG 변환
+      const link = document.createElement("a");
+      link.href = image;
+      link.download = `capture_${id}_${subId}.png`;  // ✅ 파일명 설정
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
   };
 
   return (
-    <div className={styles.subStepContainer}>
-      <h2 className={styles.subStepTitle}>Step {id} - {subId}</h2>
+  <div className={styles.subStepContainer}>
+    
 
-      <div id="captureArea" className={styles.canvasWrapper}>
-        {/* ✅ 초기화 버튼 추가 (캔버스 오른쪽 위 배치) */}
-        <button className={styles.clearButton} onClick={clearCanvas}>🗑 초기화</button>
-        
-        <canvas
-          ref={canvasRef}
-          className={styles.drawingCanvas}
-          width={2000}
-          height={1600}
-          onMouseDown={startDrawing}
-          onMouseMove={draw}
-          onMouseUp={stopDrawing}
-          onMouseLeave={stopDrawing}
-        ></canvas>
-      </div>
+    <h2 className={styles.subStepTitle}>Step {id} - {subId}</h2>
 
-      {/* ✅ 실시간 메시지 표시 */}
-      <div className={styles.resultMessage}>{message}</div>
-
-      <div className={styles.subStepControls}>
-        <Button 
-          text="이전으로" 
-          onClick={handlePrevStep} 
-          color="pink" 
-        />
-        <Button text="저장하기" onClick={() => alert("저장 기능!")} color="pink" />
-        <Button 
-          text="다음으로" 
-          onClick={handleNextStep} 
-          color="pink" 
-        />
-      </div>
+    <div id="captureArea" className={styles.canvasWrapper}>
+      {/* ✅ 화살표 아이콘 (왼쪽 위) */}
+      <button className={styles.backButton} onClick={() => navigate(`/step/${id}`)}>
+        <Icon icon={arrowLeft} width="30" height="30" />
+      </button>
+      {/* ✅ 초기화 버튼 */}
+      <button className={styles.clearButton} onClick={clearCanvas}>🗑 초기화</button>
+      
+      {/* ✅ 캔버스 */}
+      <canvas
+        ref={canvasRef}
+        className={styles.drawingCanvas}
+        width={2000}
+        height={1600}
+        onMouseDown={startDrawing}
+        onMouseMove={draw}
+        onMouseUp={stopDrawing}
+        onMouseEnter={() => canvasRef.current.style.cursor = "url('/images/brush handwriting.cur'), auto"}
+        onMouseLeave={() => canvasRef.current.style.cursor = "default"}
+      ></canvas>
     </div>
-  );
+
+    {/* ✅ 실시간 퍼센트 및 성공 여부 메시지 표시 */}
+    <div className={styles.progressContainer}>
+      <p className={styles.progressMessage}>{message}</p>
+    </div>
+
+    {/* ✅ 버튼 컨트롤 영역 */}
+    <div className={styles.subStepControls}>
+      <Button 
+        text="이전으로" 
+        onClick={handlePrevStep} 
+        color="pink" 
+      />
+      <Button 
+        text="저장하기" 
+        onClick={saveCaptureAreaAsImage} 
+        color="pink" 
+      />
+      <Button 
+        text="다음으로" 
+        onClick={handleNextStep} 
+        color="pink" 
+      />
+    </div>
+  </div>
+);
 };
 
 export default SubStep;
